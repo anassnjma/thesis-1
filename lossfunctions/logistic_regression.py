@@ -4,22 +4,26 @@ import numpy as np
 class LogisticRegression():
     @staticmethod
     def loss(theta, x, y, lambda_param=None):
-        """Loss function for logistic regression with without regularization"""
+        """Loss function for logistic regression with numerical stability"""
         exponent = - y * (x.dot(theta))
-        return np.sum(np.log(1+np.exp(exponent))) / x.shape[0]
+        # Clip exponent to prevent overflow: if exponent > 500, exp(exponent) -> inf
+        exponent_clipped = np.clip(exponent, -500, 500)
+        return np.sum(np.log(1 + np.exp(exponent_clipped))) / x.shape[0]
 
     @staticmethod
     def gradient(theta, x, y, lambda_param=None):
         """
-        Gradient function for logistic regression without regularization.
-        Based on the above logistic_regression
+        Gradient function for logistic regression with numerical stability.
         """
         exponent = y * (x.dot(theta))
-        gradient_loss = - (np.transpose(x) @ (y / (1+np.exp(exponent)))) / (
-            x.shape[0])
+        # Clip exponent to prevent overflow
+        exponent_clipped = np.clip(exponent, -500, 500)
+        
+        denominator = 1 + np.exp(exponent_clipped)
+        gradient_loss = - (np.transpose(x) @ (y / denominator)) / x.shape[0]
 
         # Reshape to handle case where x is csr_matrix
-        gradient_loss.reshape(theta.shape)
+        gradient_loss = gradient_loss.reshape(theta.shape)
 
         return gradient_loss
 
@@ -28,15 +32,14 @@ class LogisticRegressionSinglePoint():
     @staticmethod
     def loss(theta, xi, yi, lambda_param=None):
         exponent = - yi * (xi.dot(theta))
-        return np.log(1 + np.exp(exponent))
+        exponent_clipped = np.clip(exponent, -500, 500)
+        return np.log(1 + np.exp(exponent_clipped))
 
     @staticmethod
     def gradient(theta, xi, yi, lambda_param=None):
-
-        # Based on page 22 of
-        # http://www.cs.rpi.edu/~magdon/courses/LFD-Slides/SlidesLect09.pdf
         exponent = yi * (xi.dot(theta))
-        return - (yi*xi) / (1+np.exp(exponent))
+        exponent_clipped = np.clip(exponent, -500, 500)
+        return - (yi * xi) / (1 + np.exp(exponent_clipped))
 
 
 class LogisticRegressionRegular():
