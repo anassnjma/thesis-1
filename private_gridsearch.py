@@ -8,9 +8,10 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from multiprocessing import Pool 
 from itertools import product
-from Algorithms.dpsgd_lr import DPSGDLR
-from Algorithms.amp_lr import ApproximateMinimaPerturbationLR 
-from Algorithms.tukeyEM_lr import TukeyEMLR
+from Algorithms.DPPSGD import DPSGDLR #output perturbation SGD
+from Algorithms.AMP import ApproximateMinimaPerturbationLR #approximate minima perturbation 
+from Algorithms.TukeyEM import DPTukey #Tukey depth exponential mechanism
+from Algorithms.DSGD import GradientPerturbationDPSGD #gradient perturbation SGD
 
 ##########################################################################
 # Configuration
@@ -152,7 +153,7 @@ def get_hyperparameter_configs(dataset_name):
             }
         },
         'TukeyEM': {
-            'class': TukeyEMLR,
+            'class': DPTukey,
             'params': {
                 'm': tukey_m,
                 'L_data_clipping': [None],
@@ -162,6 +163,17 @@ def get_hyperparameter_configs(dataset_name):
                 'exp_mech_t_divisor': [8, 12],
                 'logreg_solver': ['liblinear'],
                 'debug': [False]
+            }
+        },
+        'GradientPerturbationDPSGD': {
+            'class': GradientPerturbationDPSGD,
+            'params': {
+                'num_iters': [50, 100, 200],
+                'learning_rate': [0.001, 0.01, 0.1], 
+                'L': [0.5, 1.0, 2.0],
+                'minibatch_size': [32, 64, 128],
+                'l2_constraint': [None, 1.0, 5.0],
+                'lambda_param': [0, 1e-4, 1e-3, 1e-2]
             }
         }
     }
