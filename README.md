@@ -1,5 +1,1 @@
-At the moment i have finished the AMP, DPSGD and DPPSGDalgorithm. I have managed to implement a private grid search to tune the hyperparameters
-of the 3 algorithms, which in the end will be used to give us the accuracy of each model compared to our baseline which is the logistic regression model.
-
-Problems im having now is getting the code for tukeyEM as the code is really complicated and the bigger problem would be whether i can tune it the same way as the AMP and DPSGD algorithm, because the TukeyEM algorithm does have some dimension needs. Im now trying out with datasets with a lower amount of variables compared to the data that i had first to see if there is a change of results as its the PTR that keep failing with tukeyEM for me, so i have to figure that out. I do have the code for TukeyEM ready though which is based on the google github, but i have been fighting for a week with it and so far i keep getting problems with PTR, in some cases i dont get the problem but only for epsilon values aboven 10.
-
+so so far the only thing thats missing is the tukeyEM code and the private normalization of the data. I have not added these things to my thesis too ,i will add them as soon i have succes with implementing them in my code.
