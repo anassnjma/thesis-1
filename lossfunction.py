@@ -1,17 +1,5 @@
 import numpy as np
 
-def stable_logsumexp(x):
-    """Numerically stable log-sum-exp"""
-    x_max = np.max(x, axis=-1, keepdims=True)
-    return x_max + np.log(np.sum(np.exp(x - x_max), axis=-1, keepdims=True))
-
-def stable_log1pexp(x):
-    """Numerically stable log(1 + exp(x))"""
-    # Use different formulations based on the value of x to avoid overflow
-    return np.where(x > 0, 
-                    x + np.log1p(np.exp(-x)),  # For x > 0: x + log(1 + exp(-x))
-                    np.log1p(np.exp(x)))       # For x <= 0: log(1 + exp(x))
-
 def logistic_loss(theta, X, y):
     """
     Numerically stable logistic loss computation
@@ -36,30 +24,6 @@ def logistic_loss(theta, X, y):
     
     return np.mean(loss)
 
-def logistic_gradient_stable(theta, X, y):
-    """
-    Numerically stable logistic gradient computation
-    
-    Args:
-        theta: model parameters  
-        X: feature matrix
-        y: binary labels in {-1, +1} format
-        
-    Returns:
-        gradient: gradient vector
-    """
-    # Compute logits
-    logits = X @ theta
-    z = y * logits
-    
-    # Stable sigmoid computation: 1 / (1 + exp(-z))
-    # Using the identity: sigmoid(z) = exp(z) / (1 + exp(z)) = 1 / (1 + exp(-z))
-    sigmoid_z = 1.0 / (1.0 + np.exp(-np.clip(z, -500, 500)))  # Clip to prevent overflow
-    
-    # Gradient: -X^T * y * (1 - sigmoid(y * logits))
-    gradient = -X.T @ (y * (1 - sigmoid_z)) / X.shape[0]
-    
-    return gradient
 
 def logistic_gradient(theta, X, y):
     """
