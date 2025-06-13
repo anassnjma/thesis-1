@@ -57,7 +57,7 @@ def create_traffic():
     return df
 
 def preprocess_and_save(df, name):
-    """Standardize, clip, add intercept, convert labels, and save"""
+    """Standardize, clip, add intercept, enforce unit ball constraint, convert labels, and save"""
     if df is None:
         print(f"Failed to create {name}")
         return
@@ -73,7 +73,13 @@ def preprocess_and_save(df, name):
     
     # Add intercept column
     intercept = np.ones((len(X_clipped), 1))
-    X_final = np.hstack([intercept, X_clipped])
+    X_with_intercept = np.hstack([intercept, X_clipped])
+    
+    # Enforce unit ball constraint: rescale each data point to have norm ≤ 1
+    norms = np.linalg.norm(X_with_intercept, axis=1)
+    # Only rescale points that exceed unit norm
+    scaling_factors = np.maximum(norms, 1.0)
+    X_final = X_with_intercept / scaling_factors.reshape(-1, 1)
     
     # Convert labels to {-1, +1}
     y_final = 2 * y.values - 1
@@ -84,6 +90,7 @@ def preprocess_and_save(df, name):
     np.save(f'./data/{name}_processed_y.npy', y_final)
     
     print(f"{name}: {len(X_final)} samples, {X_final.shape[1]} features")
+    print(f"  Max norm after unit ball constraint: {np.max(np.linalg.norm(X_final, axis=1)):.6f}")
 
 def main():
     print("Creating datasets...")
