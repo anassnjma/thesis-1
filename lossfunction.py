@@ -1,27 +1,9 @@
 import numpy as np
 
 def logistic_loss(theta, X, y):
-    """
-    Numerically stable logistic loss computation
-    
-    Args:
-        theta: model parameters
-        X: feature matrix
-        y: binary labels in {-1, +1} format
-        
-    Returns:
-        loss: scalar loss value
-    """
-    # Compute logits
     logits = X @ theta
-    
-    # For binary classification with labels in {-1, +1}:
-    # loss = log(1 + exp(-y * logits))
     z = y * logits
-    
-    # Use stable computation
-    loss = stable_log1pexp(-z)
-    
+    loss = np.log1p(np.exp(-z))  # Replace stable_log1pexp(-z) with this
     return np.mean(loss)
 
 
