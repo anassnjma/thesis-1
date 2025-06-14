@@ -1,1 +1,1 @@
-so so far the only thing thats missing is the tukeyEM code and the private normalization of the data. I have not added these things to my thesis too ,i will add them as soon i have succes with implementing them in my code.
+This is the full project, without the tukey code as i was not able to make it work.
