@@ -3,7 +3,7 @@ import numpy as np
 def logistic_loss(theta, X, y):
     logits = X @ theta
     z = y * logits
-    loss = np.log1p(np.exp(-z))  # Replace stable_log1pexp(-z) with this
+    loss = np.log1p(np.exp(-z))  
     return np.mean(loss)
 
 
