@@ -5,14 +5,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from itertools import product
-from sklearn.linear_model import SGDClassifier, LogisticRegression
+from sklearn.linear_model import LogisticRegression
 from AMP import AMP
 from DPSGD import DPSGD
 from DPPSGD import DPPSGD
+from SklearnSGD import SklearnSGD
 
-##########################################################################
 # Config
-##########################################################################
 DATASET_LOCATION = '/Users/anass/Desktop/new/data'
 AVAILABLE_DATASETS = ['california', 'news', 'traffic']
 NUM_REPEATS = 5
@@ -20,77 +19,32 @@ CORES = 4
 EPSILON_VALUES = [0.01, 0.1, 0.5, 1.0, 5.0, 10.0]
 SEED = 42
 
-# Algorithm wrappers (picklable functions for multiprocessing)
+# Algorithm wrappers
 def amp_wrapper(D, epsilon, delta, **kwargs):
     return AMP(D, epsilon, delta, **kwargs)
 
 def dpsgd_wrapper(D, epsilon, delta, **kwargs):
-    """Updated wrapper for the fixed DPSGD implementation"""
-    # Extract parameters with defaults
-    L = kwargs.get('L', 1.0)                    # Gradient clipping bound
-    T = kwargs.get('T', 50)                     # Number of epochs
-    k = kwargs.get('k', 32)                     # Batch size
-    learning_rate = kwargs.get('learning_rate', 0.01)  # Learning rate
-    
-    try:
-        # Call the fixed DPSGD function
-        theta = DPSGD(D, epsilon, delta, L, T, k, learning_rate)
-        return theta
-    except Exception as e:
-        print(f"DPSGD failed with parameters {kwargs}: {e}")
-        return None
+    return DPSGD(D, epsilon, delta, **kwargs)
 
 def dppsgd_wrapper(D, epsilon, delta, **kwargs):
     return DPPSGD(D, **kwargs, epsilon=epsilon)
 
 def sklearn_sgd_wrapper(D, epsilon, delta, **kwargs):
-    X, y = D
-    y_sklearn = np.where(y == 1, 1, 0)
-    try:
-        sgd = SGDClassifier(loss='log_loss', random_state=42, **kwargs)
-        sgd.fit(X, y_sklearn)
-        return sgd.coef_.flatten()
-    except:
-        return None
+    return SklearnSGD(D, epsilon, delta, **kwargs)
 
 ALGORITHMS = {
-    'AMP': amp_wrapper,
-    'DPSGD': dpsgd_wrapper,
-    'DPPSGD': dppsgd_wrapper,
-    'SklearnSGD': sklearn_sgd_wrapper
+    'AMP': amp_wrapper, 'DPSGD': dpsgd_wrapper, 'DPPSGD': dppsgd_wrapper, 'SklearnSGD': sklearn_sgd_wrapper
 }
 
 # Parameter grids
 PARAM_GRIDS = {
-    'AMP': {
-        'L': [1.0], 
-        'eps_2_frac': [0.4, 0.5], 
-        'eps_3_frac': [0.3], 
-        'delta_2_frac': [0.5]
-    },
-    'DPSGD': {
-        # Updated parameter names and ranges for the fixed DPSGD
-        'L': [0.5, 1.0, 2.0],                  # Gradient clipping bounds
-        'T': [50, 100, 200],                   # Number of epochs
-        'k': [32, 64],                         # Batch sizes
-        'learning_rate': [0.001, 0.01, 0.1]   # Learning rates
-    },
-    'DPPSGD': {
-        'k': [3, 5], 
-        'eta': [0.01, 0.05], 
-        'batch_size': [32], 
-        'reg_lambda': [0.01]
-    },
-    'SklearnSGD': {
-        'alpha': [0.001, 0.01], 
-        'eta0': [0.01], 
-        'max_iter': [1000]
+    'AMP': {'L': [1.0], 'eps_2_frac': [0.4, 0.5], 'eps_3_frac': [0.3], 'delta_2_frac': [0.5]},
+    'DPSGD': {'L': [0.5, 1.0, 2.0], 'T': [100, 200, 400], 'k': [32, 64], 'learning_rate': [0.001, 0.01, 0.1, 1]},
+    'DPPSGD': {'k': [3, 5], 'eta': [0.01, 0.05], 'batch_size': [32], 'reg_lambda': [0.01]},
+    'SklearnSGD': {'alpha': [0.001, 0.005, 0.01, 0.05], 'eta0': [0.001, 0.01, 0.1],'max_iter': [500, 1000, 2000]}
     }
-}
 
-##########################################################################
 # Utilities
-##########################################################################
 def load_dataset(dataset_name):
     X = np.load(os.path.join(DATASET_LOCATION, f"{dataset_name}_processed_x.npy")).astype(float)
     y = np.load(os.path.join(DATASET_LOCATION, f"{dataset_name}_processed_y.npy")).astype(int).ravel()
@@ -109,25 +63,18 @@ def count_errors(theta, X, y):
 def dict_product(d):
     return [dict(zip(d.keys(), v)) for v in product(*d.values())]
 
-##########################################################################
 # Training
-##########################################################################
 def train_model(args):
     alg_func, X, y, eps, delta, params, seed = args
     np.random.seed(seed)
     theta = alg_func(D=(X, y), epsilon=eps, delta=delta, **params)
     return theta if theta is not None and not np.allclose(theta, 0, atol=1e-12) else None
 
-
 def private_tune(alg_func, param_grid, X_tune, y_tune, eps_tune, delta, seed):
     param_combos = dict_product(param_grid)
     n_candidates = len(param_combos)
     if n_candidates == 0: return {}
     
-    eps_train = eps_tune / 2
-    eps_select = eps_tune / 2
-    
-    # Split data
     n = X_tune.shape[0]
     subset_size = n // (n_candidates + 1)
     if subset_size < 50: return param_combos[0]
@@ -138,32 +85,27 @@ def private_tune(alg_func, param_grid, X_tune, y_tune, eps_tune, delta, seed):
     # Train candidates
     tasks = []
     for i, params in enumerate(param_combos):
-        start = i * subset_size
-        end = (i + 1) * subset_size
+        start, end = i * subset_size, (i + 1) * subset_size
         subset_idx = indices[start:end]
-        # Pass the function reference, not the function call
-        tasks.append((alg_func, X_tune[subset_idx], y_tune[subset_idx], eps_train, delta, params, seed + i))
+        tasks.append((alg_func, X_tune[subset_idx], y_tune[subset_idx], eps_tune/2, delta, params, seed + i))
     
     with Pool(CORES) as pool:
         thetas = pool.map(train_model, tasks)
     
-    # Validate
+    # Validate and select
     val_idx = indices[n_candidates * subset_size:]
-    X_val, y_val = X_tune[val_idx], y_tune[val_idx]
-    if len(X_val) == 0: return param_combos[0]
+    if len(val_idx) == 0: return param_combos[0]
     
-    # Select with exponential mechanism
+    X_val, y_val = X_tune[val_idx], y_tune[val_idx]
     errors = [count_errors(theta, X_val, y_val) for theta in thetas]
     scores = -np.array(errors, dtype=float)
-    weights = np.exp(eps_select * (scores - np.max(scores)) / 2)
+    weights = np.exp((eps_tune/2) * (scores - np.max(scores)) / 2)
     probs = weights / np.sum(weights) if np.sum(weights) > 0 else np.ones(n_candidates) / n_candidates
     
     selected = rng.choice(n_candidates, p=probs)
     return param_combos[selected]
 
-##########################################################################
 # Main Experiment
-##########################################################################
 def run_experiment(dataset_name, algorithm_names):
     print(f"Dataset: {dataset_name}, Algorithms: {algorithm_names}")
     
@@ -192,11 +134,7 @@ def run_experiment(dataset_name, algorithm_names):
             for repeat in range(NUM_REPEATS):
                 seed = SEED + repeat + len(EPSILON_VALUES) * repeat
                 
-                # Budget split
-                eps_tune = epsilon_total / 2 if alg_name != 'SklearnSGD' else epsilon_total
-                eps_final = epsilon_total / 2 if alg_name != 'SklearnSGD' else epsilon_total
-                
-                # Data split
+                # Split data for tuning/training
                 rng_r = np.random.default_rng(seed)
                 train_idx = rng_r.permutation(len(X_train))
                 tune_split = int(0.75 * len(X_train))
@@ -211,13 +149,12 @@ def run_experiment(dataset_name, algorithm_names):
                     continue
                 
                 # Tune and train
-                selected_params = private_tune(alg_func, param_grid, X_tune, y_tune, eps_tune, delta, seed)
+                selected_params = private_tune(alg_func, param_grid, X_tune, y_tune, epsilon_total/2, delta, seed)
                 
                 np.random.seed(seed + 1000)
                 final_theta = None
                 if selected_params:
-                    final_theta = alg_func(D=(X_final, y_final), epsilon=eps_final, delta=delta, **selected_params)
-
+                    final_theta = alg_func(D=(X_final, y_final), epsilon=epsilon_total/2, delta=delta, **selected_params)
                 
                 accuracy = evaluate_accuracy(final_theta, X_test, y_test)
                 accuracies.append(accuracy)
@@ -233,13 +170,11 @@ def run_experiment(dataset_name, algorithm_names):
     save_results(results, dataset_name, X_full, y_full)
     return results
 
-##########################################################################
 # Save Results
-##########################################################################
 def save_results(results, dataset_name, X_full, y_full):
     os.makedirs(f"./results_{dataset_name}", exist_ok=True)
     
-    # CSV of results
+    # CSV
     with open(f"./results_{dataset_name}/{dataset_name}_results.csv", 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(['Algorithm', 'Epsilon', 'Mean', 'Std'])
@@ -255,12 +190,8 @@ def save_results(results, dataset_name, X_full, y_full):
         epsilons = sorted(alg_res.keys())
         means = [alg_res[eps]['mean'] for eps in epsilons]
         stds = [alg_res[eps]['std'] for eps in epsilons]
-        
-        if alg == 'SklearnSGD':
-            plt.axhline(y=np.mean(means), color=colors[i], linestyle='-', label=alg)
-        else:
-            plt.errorbar(epsilons, means, yerr=stds, label=alg, color=colors[i], 
-                        marker='o', capsize=3)
+        plt.errorbar(epsilons, means, yerr=stds, label=alg, color=colors[i], 
+                    marker='o', capsize=3, linewidth=2, markersize=6)
     
     # Non-private baseline
     rng = np.random.default_rng(SEED)
@@ -271,24 +202,23 @@ def save_results(results, dataset_name, X_full, y_full):
     baseline = LogisticRegression(random_state=SEED, max_iter=1000)
     baseline.fit(X_tr, np.where(y_tr == 1, 1, 0))
     baseline_acc = baseline.score(X_te, np.where(y_te == 1, 1, 0))
-    plt.axhline(y=baseline_acc, color='gray', linestyle='--', label='Non-private')
+    plt.axhline(y=baseline_acc, color='gray', linestyle='--', label='Non-private baseline', linewidth=2)
 
-    
     plt.xscale('log')
-    plt.xlabel('Privacy Budget (ε)')
-    plt.ylabel('Accuracy')
-    plt.title(f'{dataset_name.title()} - DP Algorithms')
-    plt.legend()
+    plt.xlabel('Privacy Budget (ε)', fontsize=12)
+    plt.ylabel('Accuracy', fontsize=12)
+    plt.title(f'{dataset_name.title()} - DP Algorithms', fontsize=14)
+    plt.legend(fontsize=11)
     plt.grid(True, alpha=0.3)
+    plt.tight_layout()
     plt.savefig(f"./results_{dataset_name}/{dataset_name}_plot.png", dpi=300, bbox_inches='tight')
     plt.close()
 
-##########################################################################
 # CLI
-##########################################################################
 def main():
     if len(sys.argv) < 3:
         print(f"Usage: python {sys.argv[0]} <dataset> <algorithm|ALL>")
+        print(f"Available algorithms: {list(ALGORITHMS.keys())}")
         sys.exit(1)
     
     dataset_name = sys.argv[1].lower()
