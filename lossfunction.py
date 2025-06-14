@@ -8,9 +8,6 @@ def logistic_loss(theta, X, y):
 
 
 def logistic_gradient(theta, X, y):
-    """
-    Alternative stable logistic gradient computation
-    """
     logits = X @ theta
     
     # Clip logits to prevent overflow
