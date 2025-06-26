@@ -1,1 +1,7 @@
-This is the full project, without the tukey code as i was not able to make it work.
+Full code for  a comparative analysis of optimization algorithms under private constraints.
+
+The following algorithms are tested:
+-AMP
+-DP-SGD
+-DP-PSGD
+
