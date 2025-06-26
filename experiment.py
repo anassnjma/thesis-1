@@ -9,7 +9,6 @@ from sklearn.linear_model import LogisticRegression
 from AMP import AMP
 from DPSGD import DPSGD
 from DPPSGD import DPPSGD
-from SklearnSGD import SklearnSGD
 
 # Config
 DATASET_LOCATION = '/Users/anass/Desktop/new/data'
@@ -29,19 +28,15 @@ def dpsgd_wrapper(D, epsilon, delta, **kwargs):
 def dppsgd_wrapper(D, epsilon, delta, **kwargs):
     return DPPSGD(D, **kwargs, epsilon=epsilon)
 
-def sklearn_sgd_wrapper(D, epsilon, delta, **kwargs):
-    return SklearnSGD(D, epsilon, delta, **kwargs)
-
 ALGORITHMS = {
-    'AMP': amp_wrapper, 'DPSGD': dpsgd_wrapper, 'DPPSGD': dppsgd_wrapper, 'SklearnSGD': sklearn_sgd_wrapper
+    'AMP': amp_wrapper, 'DPSGD': dpsgd_wrapper, 'DPPSGD': dppsgd_wrapper
 }
 
 # Parameter grids
 PARAM_GRIDS = {
-    'AMP': {'L': [1.0], 'eps_2_frac': [0.4, 0.5], 'eps_3_frac': [0.3], 'delta_2_frac': [0.5]},
+    'AMP': {'L': [1.0], 'eps_2_frac': [0.4, 0.7], 'eps_3_frac': [0.4, 0.7], 'delta_2_frac': [0.4,0.5]},
     'DPSGD': {'L': [0.5, 1.0, 2.0], 'T': [100, 200, 400], 'k': [32, 64], 'learning_rate': [0.001, 0.01, 0.1, 1]},
-    'DPPSGD': {'k': [3, 5], 'eta': [0.01, 0.05], 'batch_size': [32], 'reg_lambda': [0.01]},
-    'SklearnSGD': {'alpha': [0.001, 0.005, 0.01, 0.05], 'eta0': [0.001, 0.01, 0.1],'max_iter': [500, 1000, 2000]}
+    'DPPSGD': {'k': [3, 5], 'eta': [0.01, 0.05], 'batch_size': [32], 'reg_lambda': [0.01]}
     }
 
 # Utilities
@@ -184,7 +179,7 @@ def save_results(results, dataset_name, X_full, y_full):
     
     # Plot
     plt.figure(figsize=(10, 6))
-    colors = ['red', 'blue', 'green', 'orange']
+    colors = ['red', 'blue', 'green']
     
     for i, (alg, alg_res) in enumerate(results.items()):
         epsilons = sorted(alg_res.keys())
